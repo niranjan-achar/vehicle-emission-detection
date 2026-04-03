@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.venv/
+backend/.env
+
+# Node
+node_modules/
+frontend/.env
+frontend/dist/
+
+# Generated media and local db
+backend/storage/uploads/*
+backend/storage/processed/*
+backend/storage/detections.json
+
+# Keep folders
+!backend/storage/uploads/.gitkeep
+!backend/storage/processed/.gitkeep
