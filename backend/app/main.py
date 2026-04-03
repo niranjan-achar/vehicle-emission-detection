@@ -23,7 +23,7 @@ app = FastAPI(title=settings.app_name, version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,12 +48,14 @@ def startup_event() -> None:
         app.state.yolo_service.load(fallback_model_name=fallback_name)
         app.state.model_loaded = True
         app.state.model_classes = app.state.yolo_service.get_available_classes()
-        app.state.smoke_class_ids = app.state.yolo_service.resolve_class_ids(settings.smoke_class_names)
+        app.state.smoke_class_ids = app.state.yolo_service.resolve_class_ids(
+            settings.smoke_class_names_list
+        )
 
         if not app.state.smoke_class_ids:
             warning = (
                 "Configured smoke classes were not found in model labels. "
-                f"Configured={settings.smoke_class_names}, Available={app.state.model_classes}. "
+                f"Configured={settings.smoke_class_names_list}, Available={app.state.model_classes}. "
                 "Use a smoke-trained model or update SMOKE_CLASS_NAMES in backend/.env."
             )
             if app.state.yolo_service.model_warning:
@@ -75,7 +77,7 @@ def health() -> HealthResponse:
         model_loaded=bool(app.state.model_loaded),
         model_path=str(app.state.yolo_service.model_path),
         environment=settings.app_env,
-        smoke_class_names=settings.smoke_class_names,
+        smoke_class_names=settings.smoke_class_names_list,
         resolved_smoke_class_ids=app.state.smoke_class_ids,
         model_classes=app.state.model_classes,
         warning=app.state.yolo_service.model_warning,
