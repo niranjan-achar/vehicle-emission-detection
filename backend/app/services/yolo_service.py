@@ -13,7 +13,7 @@ from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
 
-
+  
 @dataclass
 class InferenceOutput:
     detections: List[Detection]

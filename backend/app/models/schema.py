@@ -3,7 +3,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-
+  
 class Detection(BaseModel):
     class_id: int
     class_name: str
