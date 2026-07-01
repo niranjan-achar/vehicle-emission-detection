@@ -1,0 +1,78 @@
+Project Title: Vehicle Emission Detection System
+
+Problem Statement
+To automatically detect smoke-emitting vehicles from images and videos so that pollution violations can be identified faster, more accurately, and at larger scale than manual inspection.
+
+Existing System
+Current monitoring is mostly manual or semi-manual. Human observation is slow, inconsistent, and not practical for processing many images or long video streams in real time.
+
+Proposed System
+A paper-based vehicle smoke detection system with a FastAPI backend and React frontend. The system accepts images and videos, detects smoke-emitting vehicles using rear detection and multi-feature fusion, stores results, and displays processed outputs in a dashboard.
+
+Objectives
+- Detect smoke-emitting vehicles from images and videos.
+- Provide a simple web interface for upload and result viewing.
+- Return bounding boxes, class labels, and confidence scores.
+- Save processed media and detection history.
+- Support notifications through webhook or email.
+
+Dataset Used
+The repository does not include a public training dataset. The system is designed to use a trained SVM bundle saved at backend/weights/paper_svm_models.pkl. A smoke-detection dataset with labeled key-region samples should be used for training.
+
+Algorithms Used
+- ViBe background subtraction
+- Integral projection for rear detection
+- ART, GLCM, and DWT feature extraction
+- SVM classification with majority voting
+- OpenCV for image and video processing
+
+Mathematical Model
+Let the input be an image or video frame X.
+
+The model predicts:
+f_theta(X) -> {(b_i, c_i, s_i)} for i = 1 to n
+
+where:
+- b_i = bounding box coordinates
+- c_i = class label
+- s_i = confidence score
+
+A detection is kept if:
+s_i >= tau
+
+where tau is the confidence threshold.
+
+For overlapping boxes, Intersection over Union is used:
+IoU = Area(B1 intersection B2) / Area(B1 union B2)
+
+Architecture Diagram
+User -> React Frontend -> FastAPI Backend -> Paper-Based Detection Service -> Processed Output
+FastAPI Backend -> Storage Service -> MongoDB or JSON Fallback
+FastAPI Backend -> Notification Service -> Webhook or Email Alerts
+
+Workflow
+1. User uploads an image or video through the frontend.
+2. The frontend sends the file to the FastAPI backend.
+3. The backend validates the file and confidence threshold.
+4. The backend runs ViBe foreground extraction, rear detection, feature fusion, and SVM voting on the image or each video frame.
+5. The system draws bounding boxes and labels.
+6. Processed output is saved and detection records are stored.
+7. Notification alerts are triggered if enabled.
+8. Results are returned to the frontend and displayed on the dashboard.
+
+Evaluation Metrics
+- Precision
+- Recall
+- F1-score
+- mAP@0.5
+- mAP@0.5:0.95
+- Inference time
+- Frames per second for video processing
+- False positive rate
+
+Results
+- The system detects smoke-emitting vehicles from uploaded images and videos.
+- It returns annotated outputs with bounding boxes, class names, and confidence values.
+- Video processing provides detection timestamps and processed video files.
+- The dashboard shows summary statistics and recent activity.
+- Notification alerts can be sent using webhook or email settings.

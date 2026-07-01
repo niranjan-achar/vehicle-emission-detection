@@ -16,9 +16,26 @@ class Settings(BaseSettings):
     model_path: Path = BASE_DIR / "weights" / "best.pt"
     fallback_model_name: str = "yolov8n.pt"
     allow_fallback_model: bool = True
+    svm_model_path: Path = BASE_DIR / "weights" / "paper_svm_models.pkl"
     uploads_dir: Path = BASE_DIR / "storage" / "uploads"
     processed_dir: Path = BASE_DIR / "storage" / "processed"
     json_db_path: Path = BASE_DIR / "storage" / "detections.json"
+
+    bg_samples: int = 20
+    bg_min_dist: int = 20
+    bg_req_matches: int = 2
+    eta_match: float = 0.15
+    s_min: int = 1500
+    s_max: int = 50000
+    delta_min: float = 0.3
+    delta_max: float = 1.5
+    eps: int = 10
+    std_window: int = 5
+    key_region_width_ratio: float = 0.7
+    key_region_height: int = 10
+    key_region_margin: int = 5
+    video_window_size: int = 100
+    alpha1: int = 10
 
     default_confidence_threshold: float = 0.20
     max_upload_size_mb: int = 100

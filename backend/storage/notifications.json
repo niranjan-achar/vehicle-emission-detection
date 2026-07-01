@@ -1,0 +1,1 @@
+{"enabled": false, "min_detections": 1, "webhook_url": null, "email": {"enabled": false, "smtp_host": null, "smtp_port": 587, "smtp_user": null, "smtp_password": null, "from_email": null, "to_emails": ""}}

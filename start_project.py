@@ -4,6 +4,8 @@ import argparse
 import hashlib
 import os
 import shutil
+import signal
+import socket
 import subprocess
 import sys
 import time
@@ -44,6 +46,58 @@ def get_backend_python(backend_root: Path) -> Path:
 
 def get_npm_command() -> str:
     return "npm.cmd" if os.name == "nt" else "npm"
+
+
+def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+def terminate_pid(pid: int) -> None:
+    try:
+        # Try a graceful kill first
+        os.kill(pid, signal.SIGTERM)
+    except Exception:
+        # Fallback for Windows if os.kill didn't work
+        try:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=False)
+        except Exception:
+            pass
+
+
+def ensure_backend_port_free(run_dir: Path, port: int = 8000) -> None:
+    if not is_port_in_use(port):
+        return
+
+    pid_file = run_dir / "backend.pid"
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text(encoding="utf-8").strip())
+            print(
+                f"Port {port} appears in use, attempting to stop PID {pid} from previous run..."
+            )
+            terminate_pid(pid)
+            # wait a short while for process to exit and port to be released
+            for _ in range(10):
+                time.sleep(0.5)
+                if not is_port_in_use(port):
+                    print("Port freed.")
+                    pid_file.unlink(missing_ok=True)
+                    return
+            raise RuntimeError(
+                f"Port {port} still in use after attempting to stop PID {pid}."
+            )
+        except ValueError:
+            raise RuntimeError(
+                f"Invalid PID file at {pid_file}, and port {port} is in use."
+            )
+    raise RuntimeError(
+        f"Port {port} is already in use. Stop the process using it or change the port."
+    )
 
 
 def sha256_of_file(path: Path) -> str:
@@ -138,6 +192,12 @@ def prepare_environment(
 def start_foreground(backend_python: Path, backend_root: Path, frontend_root: Path) -> None:
     npm_cmd = get_npm_command()
 
+    project_root = backend_root.parent
+    run_dir = project_root / ".run"
+    run_dir.mkdir(exist_ok=True)
+    # ensure port is free or attempt to stop previous background process
+    ensure_backend_port_free(run_dir, port=8000)
+
     backend_proc = subprocess.Popen(
         [
             str(backend_python),
@@ -199,6 +259,9 @@ def start_background(project_root: Path, backend_python: Path, backend_root: Pat
         "stderr": subprocess.STDOUT,
         "cwd": str(frontend_root),
     }
+
+    # ensure port is free or attempt to stop previous background process
+    ensure_backend_port_free(run_dir, port=8000)
 
     if os.name == "nt":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP

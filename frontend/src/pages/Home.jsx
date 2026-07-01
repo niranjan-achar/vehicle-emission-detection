@@ -4,6 +4,7 @@ import axios from 'axios';
 import Dashboard from '../components/Dashboard';
 import Results from '../components/Results';
 import Upload from '../components/Upload';
+import NotificationSettings from '../components/NotificationSettings';
 import { detectImage, detectVideo, fetchHealth, fetchSummary } from '../services/api';
 
 function Home() {
@@ -73,8 +74,9 @@ function Home() {
           <p className="eyebrow">AI Monitoring Suite</p>
           <h1>Vehicle Emission Detection Dashboard</h1>
           <p className="hero-copy">
-            Detect smoke-emitting vehicles from images and videos using YOLOv8, inspect confidence scores,
-            and monitor pollution trends from one unified control center.
+            Detect smoke-emitting vehicles from images and videos using the paper-based rear-detection and
+            multi-feature fusion pipeline, inspect confidence scores, and monitor pollution trends from one
+            unified control center.
           </p>
 
           <div className={`status-pill ${health?.model_loaded ? 'status-ok' : 'status-warn'}`}>
@@ -88,6 +90,9 @@ function Home() {
         </section>
 
         <Dashboard summary={summary} />
+        <div style={{ marginTop: 16 }}>
+          <NotificationSettings />
+        </div>
       </div>
     </main>
   );

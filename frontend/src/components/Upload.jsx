@@ -77,7 +77,7 @@ function Upload({ loading, onUpload, onError }) {
     <section className="glass-card panel fade-in-up delay-1">
       <div className="panel-head">
         <h2>Upload Vehicle Media</h2>
-        <span className="chip">YOLOv8 Inference</span>
+        <span className="chip">Paper-Based Inference</span>
       </div>
 
       <form className="stack" onSubmit={handleSubmit}>

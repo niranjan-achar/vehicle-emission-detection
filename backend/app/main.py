@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from app.config import get_settings
 from app.models.schema import HealthResponse
 from app.routes.detect import router as detect_router
+from app.routes.notifications import router as notifications_router
+from app.services.notification_service import NotificationService
+from app.services.paper_service import PaperService
 from app.services.storage_service import StorageService
-from app.services.yolo_service import YoloService
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-  
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -37,7 +40,7 @@ def startup_event() -> None:
     settings.uploads_dir.mkdir(parents=True, exist_ok=True)
     settings.processed_dir.mkdir(parents=True, exist_ok=True)
 
-    app.state.yolo_service = YoloService(model_path=settings.model_path)
+    app.state.paper_service = PaperService(config=settings.dict())
     app.state.storage_service = StorageService(
         json_db_path=settings.json_db_path,
         mongo_uri=settings.mongo_uri,
@@ -45,31 +48,28 @@ def startup_event() -> None:
         mongo_collection_name=settings.mongo_collection_name,
     )
 
+    # initialize notification service (reads/creates notifications.json)
+    app.state.notification_service = NotificationService()
+    # start background worker for notifications
     try:
-        fallback_name = settings.fallback_model_name if settings.allow_fallback_model else None
-        app.state.yolo_service.load(fallback_model_name=fallback_name)
-        app.state.model_loaded = True
-        app.state.model_classes = app.state.yolo_service.get_available_classes()
-        app.state.smoke_class_ids = app.state.yolo_service.resolve_class_ids(
-            settings.smoke_class_names_list
-        )
+        loop = asyncio.get_event_loop()
+        loop.create_task(app.state.notification_service.run_worker())
+    except Exception:
+        logger.exception("Failed to start notification worker")
 
-        if not app.state.smoke_class_ids:
-            warning = (
-                "Configured smoke classes were not found in model labels. "
-                f"Configured={settings.smoke_class_names_list}, Available={app.state.model_classes}. "
-                "Use a smoke-trained model or update SMOKE_CLASS_NAMES in backend/.env."
-            )
-            if app.state.yolo_service.model_warning:
-                app.state.yolo_service.model_warning = f"{app.state.yolo_service.model_warning} | {warning}"
-            else:
-                app.state.yolo_service.model_warning = warning
+    try:
+        app.state.paper_service.load()
+        app.state.model_loaded = True
+        app.state.model_classes = ["smoky", "non_smoky"]
+        app.state.smoke_class_ids = [0]  # smoky class
+
+        logger.info("Paper-based detection service loaded successfully")
     except Exception as exc:
         app.state.model_loaded = False
         app.state.model_classes = []
         app.state.smoke_class_ids = []
-        logger.exception("Failed to load YOLO model from %s", settings.model_path)
-        logger.info("Detection endpoints will return 503 until model is fixed. Error: %s", exc)
+        logger.exception("Failed to load paper service: %s", exc)
+        logger.info("Detection endpoints will return 503 until service is fixed.")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -77,14 +77,15 @@ def health() -> HealthResponse:
     return HealthResponse(
         status="ok" if app.state.model_loaded else "degraded",
         model_loaded=bool(app.state.model_loaded),
-        model_path=str(app.state.yolo_service.model_path),
+        model_path="paper-based-detection",
         environment=settings.app_env,
         smoke_class_names=settings.smoke_class_names_list,
         resolved_smoke_class_ids=app.state.smoke_class_ids,
         model_classes=app.state.model_classes,
-        warning=app.state.yolo_service.model_warning,
+        warning="Using paper-based detection (IET 2019) - no YOLOv8 model loaded",
     )
 
 
 app.include_router(detect_router)
+app.include_router(notifications_router)
 app.mount("/static", StaticFiles(directory=settings.processed_dir.parent), name="static")

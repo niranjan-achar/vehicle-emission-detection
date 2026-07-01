@@ -1,106 +1,39 @@
-# Vehicle Emission Detection System (YOLOv8 + FastAPI + React)
+# Smoky vehicle detection using machine learning
 
-End-to-end project to detect smoke-emitting vehicles from images/videos using YOLOv8, expose inference through FastAPI, and visualize results in a React dashboard.
+A compact web app for detecting smoke-emitting vehicles from images and videos using a paper-based machine learning pipeline with SVM classification.
 
-## Architecture
+## Tech Stack
 
-- Backend: FastAPI + Ultralytics YOLOv8 + OpenCV
-- Frontend: React (Vite) + Tailwind CSS + Axios
-- Storage:
-  - Primary (optional): MongoDB
-  - Fallback: JSON file at `backend/storage/detections.json`
+- Backend: FastAPI, OpenCV, SVM-based detection pipeline
+- Frontend: React
+- Storage: MongoDB or JSON fallback
 
-## Project Structure
+## What It Does
 
-```text
-backend/
-  app/
-    main.py
-    config.py
-    routes/
-      detect.py
-    services/
-      yolo_service.py
-      storage_service.py
-    utils/
-      video_processing.py
-    models/
-      schema.py
-  weights/
-    best.pt
-  requirements.txt
+- Accepts image and video uploads
+- Detects smoky vehicles using background subtraction, rear detection, feature extraction, and SVM voting
+- Saves processed results and detection history
+- Supports webhook and email notifications
 
-frontend/
-  src/
-    components/
-      Upload.jsx
-      Results.jsx
-      Dashboard.jsx
-    pages/
-      Home.jsx
-    services/
-      api.js
-    App.jsx
-    main.jsx
-    styles.css
-```
-
-## Backend API
-
-- `GET /health`
-  - Returns API and model status.
-- `POST /detect/image`
-  - Input: image file + optional `confidence` query param.
-  - Output: detections + processed image (base64 and static path).
-- `POST /detect/video`
-  - Input: video file + optional `confidence` query param.
-  - Output: processed video path + total detections + detection timestamps.
-- `GET /detect/summary`
-  - Output: dashboard counters (uploads, detections, media split).
-
-## Setup and Run
-
-### 1) Backend Setup
+## Run It
 
 ```powershell
 cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Copy-Item .env.example .env
-```
-
-Place your trained YOLOv8 weights file at:
-
-- `backend/weights/best.pt`
-
-Then start backend:
-
-```powershell
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-
-Backend URLs:
-
-- API docs: `http://localhost:8000/docs`
-- Health: `http://localhost:8000/health`
-
-### 2) Frontend Setup
 
 ```powershell
 cd frontend
 npm install
-Copy-Item .env.example .env
 npm run dev
 ```
 
-Frontend URL:
+## Model Files
 
-- `http://localhost:5173`
+- Trained SVM bundle: `backend/weights/paper_svm_models.pkl`
+- If the bundle is missing, the backend uses a fallback heuristic until training is done.
 
-## Notes
+## Train in Google Colab
 
-- If `backend/weights/best.pt` is missing or invalid, backend still starts in degraded mode and detection routes return `503`.
-- Processed media is served from `/static/processed/...`.
-- Upload file size and confidence defaults are configurable via backend environment variables.
-- CORS origins are configurable through `CORS_ORIGINS` in backend `.env`.
+Use [notebooks/google_colab_paper_svm_training.ipynb](notebooks/google_colab_paper_svm_training.ipynb) to train in Colab and save the model bundle to Google Drive, then copy it into `backend/weights/`.

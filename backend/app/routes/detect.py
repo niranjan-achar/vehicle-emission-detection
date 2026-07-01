@@ -10,6 +10,7 @@ import numpy as np
 from app.config import get_settings
 from app.models.schema import (
     DashboardSummaryResponse,
+    Detection,
     ImageDetectionResponse,
     VideoDetectionResponse,
 )
@@ -37,6 +38,22 @@ def _ensure_model_loaded(request: Request) -> None:
         )
 
 
+def _to_detection_payload(det: dict) -> Detection:
+    bbox = det.get("bbox", (0.0, 0.0, 0.0, 0.0))
+    if len(bbox) == 4:
+        x1, y1, width, height = bbox
+        bbox_xyxy = [float(x1), float(y1), float(x1 + width), float(y1 + height)]
+    else:
+        bbox_xyxy = [0.0, 0.0, 0.0, 0.0]
+
+    return Detection(
+        class_id=int(det.get("class_id", 0)),
+        class_name=str(det.get("class_name", "non_smoky")),
+        confidence=float(det.get("confidence", 0.0)),
+        bbox=bbox_xyxy,
+    )
+
+
 @router.post("/image", response_model=ImageDetectionResponse)
 async def detect_image(
     request: Request,
@@ -57,34 +74,37 @@ async def detect_image(
     if image is None:
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    threshold = confidence if confidence is not None else settings.default_confidence_threshold
-    inference = request.app.state.yolo_service.predict_image(
-        image=image,
-        conf=threshold,
-        class_ids=request.app.state.smoke_class_ids,
-    )
+    # Use paper-based detection
+    detection_result = request.app.state.paper_service.detect_frame(image)
+    detections = detection_result.get("detections", [])
+    annotated_frame = detection_result.get("frame_annotated", image)
 
     output_name = f"{uuid.uuid4().hex}.jpg"
     output_path = settings.processed_dir / output_name
-    encoded_jpg = request.app.state.yolo_service.encode_image_to_jpg_bytes(inference.annotated_frame)
-    output_path.write_bytes(encoded_jpg)
+    _, encoded_jpg = cv2.imencode(".jpg", annotated_frame)
+    output_path.write_bytes(encoded_jpg.tobytes())
 
     response = ImageDetectionResponse(
         file_name=file.filename or output_name,
-        detections=inference.detections,
-        detections_count=len(inference.detections),
-        processed_image_base64=base64.b64encode(encoded_jpg).decode("utf-8"),
+        detections=[_to_detection_payload(d) for d in detections],
+        detections_count=len(detections),
+        processed_image_base64=base64.b64encode(encoded_jpg.tobytes()).decode("utf-8"),
         processed_image_path=f"/static/processed/{output_name}",
     )
 
-    request.app.state.storage_service.save_detection_record(
-        {
-            "media_type": "image",
-            "file_name": file.filename,
-            "detections_count": len(inference.detections),
-            "confidence_threshold": threshold,
-        }
-    )
+    record = {
+        "media_type": "image",
+        "file_name": file.filename,
+        "detections_count": len(detections),
+        "confidence_threshold": confidence or settings.default_confidence_threshold,
+    }
+
+    request.app.state.storage_service.save_detection_record(record)
+    # trigger notifications (async, non-blocking)
+    try:
+        request.app.state.notification_service.notify_async(record)
+    except Exception:
+        logger.exception("Failed to schedule notification for image")
 
     return response
 
@@ -117,9 +137,10 @@ async def detect_video(
         detections_count, timestamps, total_frames, duration = process_video(
             input_path=input_path,
             output_path=output_path,
-            yolo_service=request.app.state.yolo_service,
+            paper_service=request.app.state.paper_service,
             confidence_threshold=threshold,
-            smoke_class_ids=request.app.state.smoke_class_ids,
+            window_size=settings.video_window_size,
+            alpha1=settings.alpha1,
         )
     except Exception as exc:
         logger.exception("Video processing failed")
@@ -128,14 +149,18 @@ async def detect_video(
         if input_path.exists():
             input_path.unlink(missing_ok=True)
 
-    request.app.state.storage_service.save_detection_record(
-        {
-            "media_type": "video",
-            "file_name": file.filename,
-            "detections_count": detections_count,
-            "confidence_threshold": threshold,
-        }
-    )
+    record = {
+        "media_type": "video",
+        "file_name": file.filename,
+        "detections_count": detections_count,
+        "confidence_threshold": threshold,
+    }
+
+    request.app.state.storage_service.save_detection_record(record)
+    try:
+        request.app.state.notification_service.notify_async(record)
+    except Exception:
+        logger.exception("Failed to schedule notification for video")
 
     return VideoDetectionResponse(
         file_name=file.filename or output_name,

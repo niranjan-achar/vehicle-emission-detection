@@ -41,3 +41,23 @@ export async function fetchHealth() {
   const response = await client.get('/health');
   return response.data;
 }
+
+export async function getNotificationSettings() {
+  const response = await client.get('/notifications');
+  return response.data;
+}
+
+export async function updateNotificationSettings(payload) {
+  const response = await client.post('/notifications', payload);
+  return response.data;
+}
+
+export async function testNotification() {
+  const response = await client.post('/notifications/test');
+  return response.data;
+}
+
+export async function getNotificationHistory() {
+  const response = await client.get('/notifications/history');
+  return response.data;
+}

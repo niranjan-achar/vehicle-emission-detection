@@ -5,7 +5,7 @@ function Results({ loading, result, error, mediaType }) {
     <section className="glass-card panel fade-in-up delay-2">
       <h2>Detection Results</h2>
 
-      {loading && <p className="notice notice-info">Analyzing media with YOLOv8...</p>}
+      {loading && <p className="notice notice-info">Analyzing media with the paper-based smoke detector...</p>}
 
       {error && !loading && (
         <p className="notice notice-error">
